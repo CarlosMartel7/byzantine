@@ -20,6 +20,9 @@ interface ByzantineMapStore {
   // UI
   isPanelOpen: boolean
   isLoaded: boolean
+  showRoutes: boolean
+  showLabels: boolean
+  routeLineWidth: number
 
   // ── Actions ──
   setYear: (year: number) => void
@@ -32,6 +35,10 @@ interface ByzantineMapStore {
   setCamera: (camera: Partial<CameraState>) => void
   setLoaded: (loaded: boolean) => void
   closePanel: () => void
+  toggleRoutes: () => void
+  toggleLabels: () => void
+  setRouteLineWidth: (width: number) => void
+  resetCamera: () => void
 }
 
 // ─── Store ────────────────────────────────────────────────────────────────────
@@ -47,6 +54,9 @@ export const useByzantineStore = create<ByzantineMapStore>()(
       camera: { theta: 0.3, phi: 0.65, radius: 14 },
       isPanelOpen: false,
       isLoaded: false,
+      showRoutes: true,
+      showLabels: false,
+      routeLineWidth: 0.8,
 
       // ── Timeline Actions ──
       setYear: (year) =>
@@ -99,6 +109,22 @@ export const useByzantineStore = create<ByzantineMapStore>()(
 
       closePanel: () =>
         set({ isPanelOpen: false, selectedCity: null }, false, 'closePanel'),
+
+      toggleRoutes: () =>
+        set((s) => ({ showRoutes: !s.showRoutes }), false, 'toggleRoutes'),
+
+      toggleLabels: () =>
+        set((s) => ({ showLabels: !s.showLabels }), false, 'toggleLabels'),
+
+      setRouteLineWidth: (width) =>
+        set(
+          { routeLineWidth: Math.max(0.1, Number.isFinite(width) ? width : 0.8) },
+          false,
+          'setRouteLineWidth'
+        ),
+
+      resetCamera: () =>
+        set({ camera: { theta: 0.3, phi: 0.65, radius: 14 } }, false, 'resetCamera'),
     })),
     { name: 'byzantine-map' }
   )

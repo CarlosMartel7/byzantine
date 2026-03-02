@@ -4,6 +4,7 @@ import dynamic from 'next/dynamic'
 import { useByzantineStore, selectYear, selectIsLoaded } from '@/store/useByzantineStore'
 import { Timeline } from '@/components/map/Timeline'
 import { CityPanel } from '@/components/map/CityPanel'
+import { FloatingWindows } from '@/components/map/FloatingWindows'
 
 // Three.js must be client-only — no SSR
 const MapCanvas = dynamic(
@@ -16,7 +17,10 @@ export default function ByzantiumMapPage() {
   const isLoaded = useByzantineStore(selectIsLoaded)
 
   return (
-    <main className="relative w-full h-screen overflow-hidden bg-[#050608]">
+    <main
+      className="relative overflow-hidden bg-[#050608]"
+      style={{ width: '100vw', height: '100vh' }}
+    >
       {/* ── Loading screen ── */}
       <div
         className={`absolute inset-0 z-50 flex flex-col items-center justify-center bg-[#050608] transition-opacity duration-700 ${
@@ -40,10 +44,15 @@ export default function ByzantiumMapPage() {
         </div>
       </div>
 
-      {/* ── Three.js canvas (full bleed) ── */}
-      <MapCanvas />
+      {/* ── Control bar ── */}
+      <FloatingWindows />
 
-      {/* ── Decorative corners ── */}
+      {/* ── Three.js canvas — must fill the entire viewport ── */}
+      <div className="absolute inset-0">
+        <MapCanvas />
+      </div>
+
+      {/* ── Decorative corners — fixed size, pointer-events-none ── */}
       <Corner pos="tl" />
       <Corner pos="tr" />
       <Corner pos="bl" />
@@ -51,8 +60,8 @@ export default function ByzantiumMapPage() {
 
       {/* ── Header ── */}
       <header
-        className="absolute top-0 left-0 right-0 z-10 flex items-start justify-between px-10 pt-6 pb-4 pointer-events-none"
-        style={{ background: 'linear-gradient(to bottom, rgba(5,6,8,0.95) 60%, transparent)' }}
+        className="absolute left-0 right-0 z-10 flex items-start justify-between px-10 pt-4 pb-4 pointer-events-none" 
+        style={{ background: 'linear-gradient(to bottom, rgba(5,6,8,0.95) 60%, transparent)'}}
       >
         <div>
           <h1 className="font-display-deco text-[clamp(13px,1.8vw,20px)] text-amber-100 tracking-widest leading-tight">
@@ -104,16 +113,28 @@ export default function ByzantiumMapPage() {
 // ─── Corner decoration ────────────────────────────────────────────────────────
 
 function Corner({ pos }: { pos: 'tl' | 'tr' | 'bl' | 'br' }) {
-  const posClass = {
-    tl: 'top-2 left-2',
-    tr: 'top-2 right-2 scale-x-[-1]',
-    bl: 'bottom-2 left-2 scale-y-[-1]',
-    br: 'bottom-2 right-2 scale-[-1]',
-  }[pos]
+  const style: React.CSSProperties = {
+    position: 'absolute',
+    width: 40,
+    height: 40,
+    opacity: 0.3,
+    pointerEvents: 'none',
+    zIndex: 10,
+    ...(pos === 'tl' && { top: 8, left: 8 }),
+    ...(pos === 'tr' && { top: 8, right: 8, transform: 'scaleX(-1)' }),
+    ...(pos === 'bl' && { bottom: 8, left: 8, transform: 'scaleY(-1)' }),
+    ...(pos === 'br' && { bottom: 8, right: 8, transform: 'scale(-1)' }),
+  }
 
   return (
-    <div className={`absolute w-10 h-10 pointer-events-none z-10 opacity-25 ${posClass}`}>
-      <svg viewBox="0 0 40 40" fill="none" className="w-full h-full">
+    <div style={style}>
+      <svg
+        viewBox="0 0 40 40"
+        fill="none"
+        width={40}
+        height={40}
+        style={{ display: 'block' }}
+      >
         <path d="M2 38 L2 2 L38 2" stroke="#c9a84c" strokeWidth="1.5" />
         <path d="M2 2 L10 10" stroke="#c9a84c" strokeWidth="1" />
       </svg>
