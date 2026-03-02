@@ -1,0 +1,35 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --gold:        #c9a84c;
+    --gold-bright: #f0d080;
+    --gold-dim:    #7a6030;
+    --ink:         #050608;
+    --parchment:   #e8d9b0;
+  }
+
+  html,
+  body {
+    height: 100%;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    background-color: #050608;
+  }
+
+  #__next {
+    height: 100%;
+  }
+}
+
+@layer utilities {
+  .font-display      { font-family: var(--font-cinzel), serif; }
+  .font-display-deco { font-family: var(--font-cinzel-deco), serif; }
+  .font-body         { font-family: var(--font-garamond), serif; }
+  .scrollbar-none    { scrollbar-width: none; }
+  .scrollbar-none::-webkit-scrollbar { display: none; }
+}
