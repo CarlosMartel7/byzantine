@@ -1,9 +1,11 @@
 'use client'
 
-import { useEffect, useRef, useMemo } from 'react'
+import { useEffect, useRef, useMemo, useState } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
-import { CameraControls, Line, Text } from '@react-three/drei'
+import { CameraControls, Line, OrbitControls, Text } from '@react-three/drei'
 import * as THREE from 'three'
+import { GeoJSONLoader } from 'three-geojson'
+import CameraControlsImpl from 'camera-controls'
 import {
   useByzantineStore,
   selectYear,
@@ -17,10 +19,8 @@ import type { City } from '@/types/byzantine'
 // ─── Coordinate helper ────────────────────────────────────────────────────────
 
 function geoToXZ(lat: number, lng: number) {
-  return {
-    x: ((lng - MAP_BOUNDS.lngMin) / (MAP_BOUNDS.lngMax - MAP_BOUNDS.lngMin) - 0.5) * MAP_BOUNDS.width,
-    z: (0.5 - (lat - MAP_BOUNDS.latMin) / (MAP_BOUNDS.latMax - MAP_BOUNDS.latMin)) * MAP_BOUNDS.height,
-  }
+  // Keep all city/camera math on the same projection as the world GeoJSON overlay.
+  return worldGeoToXZ(lat, lng)
 }
 
 // ─── Terrain ──────────────────────────────────────────────────────────────────
@@ -72,6 +72,76 @@ const ROUTES: [string, string][] = [
   ['antioch', 'alexandria'],     ['carthage', 'rome'],
   ['ravenna', 'rome'],           ['rome', 'athens'],
 ]
+
+const WORLD_GEOJSON_URL =
+  'https://raw.githubusercontent.com/datasets/geo-countries/master/data/countries.geojson'
+const WORLD_OVERLAY_SCALE = 10
+
+function worldGeoToXZ(lat: number, lng: number) {
+  const width = (MAP_BOUNDS.width + 4) * WORLD_OVERLAY_SCALE
+  const height = (MAP_BOUNDS.height + 4) * WORLD_OVERLAY_SCALE
+  return {
+    x: ((lng + 180) / 360 - 0.5) * width,
+    z: (0.5 - (lat + 90) / 180) * height,
+  }
+}
+
+function GeoJsonOverlay() {
+  const [geoLines, setGeoLines] = useState<THREE.LineSegments | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+
+    ;(async () => {
+      try {
+        const loader = new GeoJSONLoader()
+        const parsed = await loader.loadAsync(WORLD_GEOJSON_URL)
+        const lineObject = GeoJSONLoader.getLineObject(
+          [...parsed.lines, ...parsed.polygons],
+          { flat: true }
+        )
+
+        // Convert lon/lat space produced by three-geojson to our XZ map plane.
+        const geo = lineObject.geometry
+        const pos = geo.getAttribute('position') as THREE.BufferAttribute
+        const center = lineObject.position.clone()
+        for (let i = 0; i < pos.count; i++) {
+          const lon = pos.getX(i) + center.x
+          const lat = pos.getY(i) + center.y
+          const { x, z } = worldGeoToXZ(lat, lon)
+          pos.setXYZ(i, x, 0, z)
+        }
+        pos.needsUpdate = true
+
+        lineObject.position.set(0, 0.03, 0)
+        lineObject.rotation.set(0, 0, 0)
+        lineObject.material = new THREE.LineBasicMaterial({
+          color: 0xf0d080,
+          transparent: true,
+          opacity: 0.3,
+        })
+
+        if (!cancelled) setGeoLines(lineObject)
+      } catch (error) {
+        console.error('Failed to load world GeoJSON overlay', error)
+      }
+    })()
+
+    return () => {
+      cancelled = true
+      setGeoLines((prev) => {
+        if (!prev) return prev
+        prev.geometry.dispose()
+        const mat = prev.material as THREE.Material
+        mat.dispose()
+        return null
+      })
+    }
+  }, [])
+
+  if (!geoLines) return null
+  return <primitive object={geoLines} />
+}
 
 function TradeRoutes() {
   const showRoutes = useByzantineStore((s) => s.showRoutes)
@@ -323,15 +393,30 @@ function Scene({ controlsRef }: { controlsRef: React.RefObject<CameraControls> }
       <fog attach="fog" args={[0x0a0c10, 18, 55]} />
       <CameraControls
         ref={controlsRef}
-        minDistance={5}
-        maxDistance={28}
-        maxPolarAngle={Math.PI / 2.1}
+        minDistance={0.5}
+        maxDistance={180}
+        minPolarAngle={0}
+        maxPolarAngle={Math.PI}
+        minAzimuthAngle={-Infinity}
+        maxAzimuthAngle={Infinity}
+        mouseButtons={{
+          left: CameraControlsImpl.ACTION.TRUCK,
+          middle: CameraControlsImpl.ACTION.DOLLY,
+          right: CameraControlsImpl.ACTION.ROTATE,
+          wheel: CameraControlsImpl.ACTION.DOLLY,
+        }}
+        touches={{
+          one: CameraControlsImpl.ACTION.TOUCH_ROTATE,
+          two: CameraControlsImpl.ACTION.TOUCH_DOLLY_TRUCK,
+          three: CameraControlsImpl.ACTION.TOUCH_TRUCK,
+        }}
         dampingFactor={0.08}
       />
       <CameraController controlsRef={controlsRef} />
       <CameraResetWatcher controlsRef={controlsRef} />
 
       <Terrain />
+      <GeoJsonOverlay />
       <TradeRoutes />
 
       {CITIES.map((city) => (

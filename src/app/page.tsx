@@ -1,6 +1,7 @@
 'use client'
 
 import dynamic from 'next/dynamic'
+import { useEffect, useRef } from 'react'
 import { useByzantineStore, selectYear, selectIsLoaded } from '@/store/useByzantineStore'
 import { Timeline } from '@/components/map/Timeline'
 import { CityPanel } from '@/components/map/CityPanel'
@@ -15,12 +16,43 @@ const MapCanvas = dynamic(
 export default function ByzantiumMapPage() {
   const year = useByzantineStore(selectYear)
   const isLoaded = useByzantineStore(selectIsLoaded)
+  const audioRef = useRef<HTMLAudioElement>(null)
+
+  useEffect(() => {
+    const audio = audioRef.current
+    if (!audio) return
+
+    audio.loop = true
+    audio.volume = 0.35
+
+    const tryPlay = () => {
+      void audio.play().catch(() => {
+        // Browser blocked autoplay; first interaction handler below will retry.
+      })
+    }
+
+    tryPlay()
+
+    const unlockAudio = () => {
+      tryPlay()
+    }
+
+    window.addEventListener('pointerdown', unlockAudio, { once: true })
+    window.addEventListener('keydown', unlockAudio, { once: true })
+
+    return () => {
+      window.removeEventListener('pointerdown', unlockAudio)
+      window.removeEventListener('keydown', unlockAudio)
+    }
+  }, [])
 
   return (
     <main
       className="relative overflow-hidden bg-[#050608]"
       style={{ width: '100vw', height: '100vh' }}
     >
+      <audio ref={audioRef} src="/music/background_music.mp3" preload="auto" />
+
       {/* ── Loading screen ── */}
       <div
         className={`absolute inset-0 z-50 flex flex-col items-center justify-center bg-[#050608] transition-opacity duration-700 ${
